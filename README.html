@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jardín Mágico - Explorador de Flores</title>
+    <style>
+        :root{
+            --scale: 1;
+        }
+        
+        /* [NUEVO] Estilo para el mensaje de instrucciones en la parte superior */
+        #top-instruction {
+            position: fixed;
+            top: 20px; /* Ajustar posición para que no interfiera con el botón de reinicio */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            text-align: center;
+            color: #FFD700; /* Color dorado para resaltar */
+            font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 0, 0, 0.9), 0 0 5px #E91E63;
+            z-index: 1002; /* Más alto que todo lo demás */
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-radius: 5px;
+            backdrop-filter: blur(2px);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #d727e0 0%, #080324 100%);
+            overflow: auto;
+            font-family: 'Arial', sans-serif;
+            position: relative; 
+            transition: background 10s ease; /* [MODIFICADO] 10 segundos para el fondo */
+        }
+        
+        /* [NUEVO] ESTILO DE FONDO PARA LA CELEBRACIÓN */
+        .tender-background {
+            background: linear-gradient(to top, #FFC0CB 0%, #FBEFEF 100%) !important; /* Degradado Rosa/Blanco suave */
+        }
+        
+        /* Asegurar que las instrucciones se ocultan cuando se revela la frase */
+        .tender-background #top-instruction {
+            display: none;
+        }
+        
+        /* Estilo del botón de Reinicio */
+        #reset-btn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(233, 30, 99, 0.8); 
+            color: white;
+            border: 2px solid white;
+            padding: 8px 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1001; 
+            transition: background-color 0.3s, transform 0.3s;
+            backdrop-filter: blur(3px); 
+        }
+
+        #reset-btn:hover {
+            background-color: #E91E63; 
+            transform: scale(1.05);
+        }
+
+        /* Contenedor del Corazón (Se escala) */
+        .garden {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            transform-origin: center top;
+            transform: scale(var(--scale));
+            transition: transform 240ms ease;
+            z-index: 10;
+        }
+
+        /* Contenedor para las flores del suelo (NO se escala) */
+        .ground-flowers {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh; 
+            pointer-events: none;
+            z-index: 5; 
+        }
+
+        .flower {
+            position: absolute;
+            transform-origin: bottom center;
+            animation: grow 6s ease-out forwards, sway 4s ease-in-out infinite;
+            opacity: 0;
+            pointer-events: auto; 
+        }
+
+        .big-flower {
+            position: absolute;
+            transform-origin: bottom center;
+            animation: grow 3s ease-out forwards, sway 6s ease-in-out infinite;
+            opacity: 0;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .big-flower:hover {
+            transform: scale(1.1);
+        }
+
+        /* [INICIO] ESTILOS DEL JUEGO DE ADIVINANZA */
+        #guess-container {
+            position: absolute;
+            bottom: 15vh; /* Posicionado debajo del corazón y sobre el césped */
+            width: 100%;
+            text-align: center;
+            z-index: 20;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+        #guess-message {
+            color: white;
+            font-size: clamp(1.2rem, 3vw, 1.8rem);
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            transition: color 1.5s ease, text-shadow 1.5s ease;
+        }
+        
+        .tender-background #guess-message {
+            color: #E91E63; /* Mensaje en rosa si el fondo es tierno */
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+
+        .word-display {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+            margin: 0 auto 20px;
+            gap: 5px;
+        }
+
+        .letter-box {
+            /* Base para la caja de regalo */
+            background-color: #6A1B9A; 
+            border: 2px solid #BA68C8; 
+            color: transparent; 
+            width: 30px; 
+            height: 40px; 
+            line-height: 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 0 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            border-radius: 6px; 
+            user-select: none;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden; 
+        }
+        
+        /* Ocultar el contenido de la letra si NO ha sido revelado */
+        .letter-box:not(.revealed) {
+            color: transparent;
+        }
+        
+        /* Mostrar el lazo SÓLO si la caja está cubierta (DEFAULT: ROJO) */
+        .letter-box.covered::before,
+        .letter-box.covered::after {
+            content: '';
+            position: absolute;
+            background-color: #E91E63; /* Color del lazo (Rosa/Carmesí) */
+            transition: opacity 0.4s ease, background-color 0.4s ease;
+        }
+
+        /* ESTILO CUANDO LA LETRA ES CORRECTA Y CUBIERTA (Correa Verde) */
+        .letter-box.found-correct.covered {
+            border: 2px solid #81C784; 
+        }
+        
+        .letter-box.found-correct.covered::before,
+        .letter-box.found-correct.covered::after {
+            background-color: #4CAF50 !important; /* Verde */
+        }
+
+        /* Tira horizontal del lazo */
+        .letter-box.covered::before {
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            transform: translateY(-50%);
+        }
+
+        /* Tira vertical del lazo */
+        .letter-box.covered::after {
+            top: 0;
+            left: 50%;
+            width: 6px;
+            height: 100%;
+            transform: translateX(-50%);
+        }
+
+        /* ESTILO CUANDO LA LETRA ES REVELADA (animación) */
+        .letter-box.revealing {
+            background-color: rgba(255, 255, 255, 0.1) !important; 
+            border: none !important;
+            border-bottom: 3px solid #E91E63 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            color: #FFEB3B; /* [MODIFICADO] Color más brillante */
+            text-shadow: 0 0 5px #ff7b00, 0 0 10px #ffc800; /* [MODIFICADO] Sombra intensa */
+        }
+        
+        /* ESTILO CUANDO LA LETRA ES REVELADA (estado final) */
+        .letter-box.revealed {
+            background-color: rgba(255, 255, 255, 0.1) !important; 
+            border: none !important;
+            border-bottom: 3px solid #E91E63 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            color: #FFEB3B !important; /* [MODIFICADO] Color más brillante */
+            text-shadow: 0 0 5px #ff7b00, 0 0 10px #ffc800; /* [MODIFICADO] Sombra intensa */
+        }
+        
+        /* Animación de "caída" de la cubierta de regalo cuando se revela */
+        .letter-box.revealing::before,
+        .letter-box.revealing::after {
+            opacity: 0;
+            transform: translateY(50px) rotate(180deg);
+            transition: all 0.6s ease-in;
+        }
+        /* Asegurar que la cubierta desaparezca en el estado final también */
+        .letter-box.revealed::before,
+        .letter-box.revealed::after {
+            display: none;
+        }
+
+
+        .space-box {
+            width: 15px;
+            background-color: transparent;
+            border: none;
+        }
+
+        .punctuation-box {
+            background-color: transparent;
+            border: none;
+            color: white;
+            transition: color 1.5s ease;
+        }
+        
+        .tender-background .punctuation-box {
+             color: #E91E63; /* Puntuación en rosa si el fondo es tierno */
+        }
+
+        #input-letter {
+            width: 80px;
+            padding: 10px;
+            font-size: 1.2rem;
+            text-align: center;
+            border: 2px solid #E91E63;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 10px rgba(233, 30, 99, 0.7);
+            outline: none;
+            transition: border-color 0.3s;
+            text-transform: uppercase; 
+        }
+
+        #input-letter:focus {
+            border-color: #BA68C8;
+        }
+        
+        /* Estilos de botones de decisión */
+        .decision-btn, #ready-btn {
+            padding: 10px 25px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        /* [NUEVO] ESTILO PARA EL BOTÓN LISTO */
+        #ready-btn {
+            background-color: #FF5722; /* Color Naranja Vibrante */
+            margin-top: 15px;
+            box-shadow: 0 0 15px rgba(255, 87, 34, 0.7); /* Brillo para resaltarlo */
+        }
+
+        #ready-btn:hover {
+            background-color: #E64A19;
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .decision-btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+        /* [FIN] ESTILOS DEL JUEGO DE ADIVINANZA */
+
+        /* [NUEVO] ESTILOS DE CELEBRACIÓN */
+        #celebration-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Permite clics a través del div */
+            z-index: 999;
+            overflow: hidden;
+        }
+        
+        .falling-item {
+            position: absolute;
+            color: var(--color); 
+            font-size: var(--size); 
+            opacity: 0;
+            top: -50px; 
+            user-select: none;
+            animation: fall var(--duration) linear forwards;
+            filter: drop-shadow(0 0 2px rgba(0,0,0,0.2));
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(105vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        /* [FIN] ESTILOS DE CELEBRACIÓN */
+        
+        
+        /* --- (Resto de estilos de flores, mariposas y paneles de información se mantienen) --- */
+        .stem {
+            width: 9px;
+            height: 100px;
+            background: linear-gradient(to top, #2E7D32, #4CAF50);
+            border-radius: 3px;
+            position: relative;
+            margin: 0 auto;
+            box-shadow: inset -1px 0 2px rgba(0,0,0,0.2);
+        }
+
+        .petals {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+        }
+
+        .big-petals {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+        }
+
+        .petal {
+            position: absolute;
+            width: 18px;
+            height: 30px;
+            border-radius: 60% 60% 60% 60% / 90% 90% 30% 30%;
+            transform-origin: 50% 90%;
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.2);
+            top: 50%;
+            left: 50%;
+        }
+
+        .big-petal {
+            position: absolute;
+            width: 36px;
+            height: 60px;
+            border-radius: 60% 60% 60% 60% / 90% 90% 30% 30%;
+            transform-origin: 50% 90%;
+            box-shadow: inset 0 4px 8px rgba(255,255,255,0.3), 0 4px 8px rgba(0,0,0,0.2);
+            top: 50%;
+            left: 50%;
+        }
+
+        .petal:nth-child(1), .big-petal:nth-child(1) { 
+            transform: translate(-50%, -45%) rotate(0deg) translateY(-22px); 
+        }
+        .petal:nth-child(2), .big-petal:nth-child(2) { 
+            transform: translate(-120%, -82%) rotate(72deg) translateY(-22px); 
+        }
+        .petal:nth-child(3), .big-petal:nth-child(3) { 
+            transform: translate(-80%, -130%) rotate(144deg) translateY(-22px); 
+        }
+        .petal:nth-child(4), .big-petal:nth-child(4) { 
+            transform: translate(-2%, -125%) rotate(216deg) translateY(-22px); 
+        }
+        .petal:nth-child(5), .big-petal:nth-child(5) { 
+            transform: translate(+20%, -75%) rotate(288deg) translateY(-22px); 
+        }
+
+        .center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 15px;
+            height: 15px;
+            background: radial-gradient(circle, #FFD700, #FFA000);
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+            z-index: 10;
+            cursor: pointer;
+        }
+
+        .big-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #FFD700, #FFA000);
+            border-radius: 50%;
+            box-shadow: 0 0 16px rgba(255, 215, 0, 0.8);
+            z-index: 10;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .big-center:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 0 24px rgba(255, 215, 0, 1);
+        }
+
+        .leaf {
+            position: absolute;
+            width: 20px;
+            height: 12px;
+            background: linear-gradient(45deg, #2E7D32, #4CAF50);
+            border-radius: 0 100% 0 100%;
+            transform-origin: left center;
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.3);
+        }
+
+        .leaf.left, .big-leaf.left {
+            left: -20px;
+            top: 30px;
+            transform: rotate(-25deg);
+        }
+
+        .leaf.right, .big-leaf.right {
+            right: -40px;
+            top: 45px;
+            transform: rotate(25deg) scaleX(-1);
+        }
+
+        .big-leaf.left {
+            left: -40px;
+            top: 50px;
+        }
+
+        .big-leaf.right {
+            right: -80px;
+            top: 65px;
+        }
+
+        /* Colores de flores */
+        .flower.red .petal, .big-flower.red .big-petal { 
+            background: linear-gradient(135deg, #FF6B9D, #E91E63, #AD1457);
+        }
+        .flower.blue .petal, .big-flower.blue .big-petal { 
+            background: linear-gradient(135deg, #64B5F6, #2196F3, #1565C0);
+        }
+        .flower.yellow .petal, .big-flower.yellow .big-petal { 
+            background: linear-gradient(135deg, #FFD54F, #FFC107, #F57C00);
+        }
+        .flower.purple .petal, .big-flower.purple .big-petal { 
+            background: linear-gradient(135deg, #BA68C8, #9C27B0, #6A1B9A);
+        }
+        .flower.orange .petal, .big-flower.orange .big-petal { 
+            background: linear-gradient(135deg, #FFB74D, #FF9800, #E65100);
+        }
+        .flower.pink .petal, .big-flower.pink .big-petal { 
+            background: linear-gradient(135deg, #F8BBD9, #E1BEE7, #CE93D8);
+        }
+        .flower.white .petal, .big-flower.white .big-petal { 
+            background: linear-gradient(135deg, #FFFFFF, #504f4f, #9d9d9d);
+        }
+        .flower.green .petal, .big-flower.green .big-petal { 
+            background: linear-gradient(135deg, #81C784, #4CAF50, #2E7D32);
+        }
+        .flower.violet .petal, .big-flower.violet .big-petal { 
+            background: linear-gradient(135deg, #9575CD, #673AB7, #512DA8);
+        }
+        .flower.coral .petal, .big-flower.coral .big-petal { 
+            background: linear-gradient(135deg, #FF8A65, #FF5722, #D84315);
+        }
+        .flower.turquoise .petal, .big-flower.turquoise .big-petal { 
+            background: linear-gradient(135deg, #4DD0E1, #00BCD4, #00838F);
+        }
+        .flower.magenta .petal, .big-flower.magenta .big-petal { 
+            background: linear-gradient(135deg, #f584a9, #ff0055, #700e39);
+        }
+        .flower.crimson .petal, .big-flower.crimson .big-petal {
+            background: linear-gradient(135deg, #D32F2F, #C62828, #B71C1C);
+        }
+        .flower.golden .petal, .big-flower.golden .big-petal {
+            background: linear-gradient(135deg, #FFD966, #FFC107, #FFB300);
+        }
+
+        /* Responsividad: ajustar escala del jardín según ancho de pantalla */
+        @media (max-width: 480px) {
+            :root { --scale: 0.62; }
+            .big-petals { width: 90px; height: 90px; top: -55px; }
+            .petals { width: 45px; height: 45px; top: -30px; }
+            .big-center { width: 22px; height: 22px; }
+            .center { width: 12px; height: 12px; }
+            .letter-box { width: 25px; height: 35px; line-height: 35px; } 
+        }
+
+        @media (max-width: 768px) and (min-width: 481px) {
+            :root { --scale: 0.82; }
+            .big-petals { width: 105px; height: 105px; }
+            .petals { width: 52px; height: 52px; }
+        }
+
+        @media (min-width: 1200px) {
+            :root { --scale: 1.02; }
+        }
+
+        @keyframes grow {
+            0% {
+                transform: scale(0) translateY(20px);
+                opacity: 0;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes sway {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(2deg); }
+            75% { transform: rotate(-2deg); }
+        }
+
+        .butterfly {
+            position: absolute;
+            width: 20px;
+            height: 15px;
+            animation: fly 8s linear infinite;
+        }
+
+        .wing {
+            position: absolute;
+            width: 8px;
+            height: 12px;
+            background: linear-gradient(45deg, #FF69B4, #FFD700);
+            border-radius: 50%;
+            animation: flutter 0.3s ease-in-out infinite alternate;
+        }
+
+        .wing.left {
+            left: 2px;
+            transform-origin: right center;
+        }
+
+        .wing.right {
+            right: 2px;
+            transform-origin: left center;
+        }
+
+        .body {
+            position: absolute;
+            width: 2px;
+            height: 12px;
+            background: #333;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        @keyframes flutter {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(20deg); }
+        }
+
+        @keyframes fly {
+            0% {
+                left: -50px;
+                top: 20%;
+                transform: rotate(0deg);
+            }
+            25% {
+                left: 25%;
+                top: 60%;
+                transform: rotate(10deg);
+            }
+            50% {
+                left: 75%;
+                top: 30%;
+                transform: rotate(-5deg);
+            }
+            75% {
+                left: 50%;
+                top: 70%;
+                transform: rotate(15deg);
+            }
+            100% {
+                left: calc(100% + 50px);
+                top: 40%;
+                transform: rotate(0deg);
+            }
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #FFD700;
+            border-radius: 50%;
+            animation: sparkle 2s ease-in-out infinite;
+        }
+
+        @keyframes sparkle {
+            0%, 100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1);
+                box-shadow: 0 0 10px #FFD700;
+            }
+        }
+
+        /* Estilos del panel de información */
+        .info-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 1000;
+        }
+
+        .info-content {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            padding: clamp(16px, 4vw, 40px);
+            border-radius: clamp(10px, 2vw, 20px);
+            width: min(92%, 540px);
+            max-width: 540px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+            animation: slideIn 0.5s ease-out;
+            box-sizing: border-box;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-content h2 {
+            color: #2E7D32;
+            margin-bottom: 1rem;
+            font-size: clamp(1.2rem, 3.5vw, 2rem);
+        }
+
+        .info-content p {
+            color: #333;
+            line-height: 1.6;
+            font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+            margin-bottom: 0.6rem;
+            text-align: left;
+        }
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .flower-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .video-btn:hover {
+            background-color: #C2185B !important; 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3) !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="celebration-container"></div>
+    
+    <div id="top-instruction">Preciona el centro de cada flor, y segun la letra que salga la escribes abajo</div>
+    
+    <button id="reset-btn" onclick="resetGame()">Reiniciar</button>
+    
+    <div class="garden" id="garden">
+        </div>
+    
+    <div class="ground-flowers" id="groundFlowers">
+        </div>
+
+    <div id="guess-container">
+        <h2 id="guess-message">Adivina la frase:</h2>
+        <div id="word-display" class="word-display">
+            </div>
+        <input type="text" id="input-letter" maxlength="1" placeholder="Escribe una letra" autofocus>
+
+        <button id="ready-btn" onclick="revealWordSequence()" style="display: none;">¿Lista?</button>
+        
+        <div id="final-decision-buttons" style="display: none; margin-top: 15px;">
+            <button onclick="handleDecision('yes')" class="decision-btn yes-btn" 
+                    style="background-color: #4CAF50;">SÍ</button>
+            <button onclick="handleDecision('no')" class="decision-btn no-btn" 
+                    style="background-color: #E91E63; margin-left: 20px;">NO</button>
+        </div>
+    </div>
+    <div class="info-panel" id="infoPanel">
+        <div class="info-content" id="infoContent">
+            <button class="close-btn" onclick="closeInfo()">&times;</button>
+            <div id="flowerInfo"></div>
+        </div>
+    </div>
+
+    <script>
+        const garden = document.getElementById('garden');
+        const groundFlowers = document.getElementById('groundFlowers');
+        
+        // [INICIO] VARIABLES Y LÓGICA DEL JUEGO
+        const PHRASE = "¿Quieres ser mi novia?";
+        const NORMALIZED_PHRASE = PHRASE.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); 
+        
+        // CLAVES PARA LOCALSTORAGE
+        const STORAGE_KEY_LETTERS = 'magicGardenGuessedLetters';
+        const STORAGE_KEY_NO_COUNT = 'magicGardenNoCount';
+        const STORAGE_KEY_REVEALED = 'magicGardenIsRevealed'; 
+
+        let guessedLetters = [];
+        let noCount = 0; 
+        let isRevealed = false;
+
+        const wordDisplay = document.getElementById('word-display');
+        const inputLetter = document.getElementById('input-letter');
+        const guessMessage = document.getElementById('guess-message');
+        const readyBtn = document.getElementById('ready-btn');
+        const finalDecisionButtons = document.getElementById('final-decision-buttons');
+        const celebrationContainer = document.getElementById('celebration-container');
+        
+        const noPhrases = [
+            "¿Estás completamente segura? Piensa un poco más...",
+            "¡No me lo esperaba! 💔 ¿Podrías reconsiderarlo?",
+            "Vamos, di que sí... ¡sería increíble! 😉",
+            "¡Por favor! Solo una última oportunidad para convencerte. 🙏",
+            "Sé que en el fondo quieres decir que SÍ. Dímelo."
+        ];
+        // [FIN] VARIABLES Y LÓGICA DEL JUEGO
+
+        const colors = ['red', 'blue', 'yellow', 'purple', 'orange', 'pink'];
+        const bigFlowerColors = ['red', 'blue', 'yellow', 'purple', 'orange', 'pink', 'white', 'green', 'violet', 'coral', 'turquoise', 'magenta', 'crimson', 'golden'];
+        let flowerCount = 0;
+
+        const flowerData = {
+            red: {name: "Rosa", icon: "🌹", description: "La rosa es conocida como la reina de las flores. Simboliza la querida, pasión y la belleza. Sus pétalos aterciopelados y su fragancia embriagadora han cautivado a la humanidad durante milenios. Existen más de 300 especies de rosas en todo el mundo y para mi la unica eres tu. [L:Q]", videoLink: ""},
+            blue: {name: "Hortensia", icon: "🌸", description: "Las hortensias son flores que pueden cambiar de color según el pH del suelo. Simbolizan la gratitud, la gracia y la belleza. Sus grandes cabezas florales están compuestas por pequeñas flores agrupadas, creando un espectáculo visual impresionante asi como tu que deslumbras creando un espectáculo ante mi♡. [L:U]", videoLink: ""},
+            yellow: {name: "Girasol", icon: "🌻", description: "El girasol es un símbolo de alegría, optimismo e vitalidad. Esta magnífica flor sigue el movimiento del sol a lo largo del día, un fenómeno llamado heliotropismo. Puede q no sea la gran cosa pero transmite felicidadasi colo tu♡. [L:E]", videoLink: ""},
+            purple: {name: "Lavanda", icon: "💜", description: "La lavanda es famosa por s[L:e]r un aroma relajante y propiedades calmantes. Simboliza la serenidad, la gracia y la calma. Sus flores en espiga de color púrpura no solo son hermosas, sino que también tu me das calma por ser como eres. [L;I]", videoLink: ""},
+            orange: {name: "Caléndula", icon: "🧡", description: "La caléndula, también conocida como maravilla, simboliza la pasión y la creatividad. Sus pétalos naranjas brillantes se abren con el sol y se cierran al atardecer. Tiene propiedades medicinales y se usa en cosmética natural. [L:R]", videoLink: ""},
+            pink: {name: "Peonía", icon: "🌺", description: "La peonía reprelenta el honor, la riqueza y la belleza. Sus flores grandes y exuberantes con múltiples capas de pétalos son un espectáculo de la naturaleza. En algunas culturas, se considera un símbolo de buena fortuna y matrimonio feliz.[L:A]", videoLink: ""},
+            white: {name: "Jazmín", icon: "🤍", description: "El jazmín es conocido por su fragancia intensa y embriagadora, especialmente por las noches. Simboliza la pureza, la elegancia y el amor eterno. Sus pequeñas flores blancas estrelladas han inspirado poetas y perfumistas durante siglos. [L:S]", videoLink: ""},
+            green: {name: "Eucalipto", icon: "💚", description: "El eucalipto es conocido por sus propiedades medicinales y aromáticas. Sus flores son pequeñas pero muy fragrates, y simbolizan la protección y la curación, asi como tu curastes mi corazón. [L:V]", videoLink: ""},
+            violet: {name: "Violeta", icon: "💜", description: "La violeta es símbolo de modestia, humildad y amor verdadero. Estas delicadas flores han sido apreciadas desde la antigüedad por su belleza sutil y su fragancia dulce. En muchas culturas representan la fidelidad. [L:M]", videoLink: ""},
+            coral: {name: "Hibisco", icon: "🌺", description: "El hibisco es una flor tropical exótica listosa que simboliza la belleza delicada y la feminidad. Sus grandes pétalos de colores vibrantes son utilizados para hacer té e infusiones. Representa la hospitalidad y el disfrute de la vida.[L:O]", videoLink: ""},
+            turquoise: {name: "Nomeolvides", icon: "💙", description: "Las nomeolvides son pequeñas flores azules que simbolizan el amor verdadero y los recuerdos imperecederos. Su nombre significa 'no me olvides' y tradicionalmente se regalan como símbolo de amor eterno y memoria. [L:N]", videoLink: ""},
+            // FLORES SIN LETRA CON MENSAJE PERSONALIZADO
+            magenta: {name: "Buganvilla", icon: "🌸", description: "La buganvilla es una planta trepadora con flores vibrantes que simboliza la pasión y la belleza, sus coloridas brácteas crean espectaculares cascadas de color que alegran cualquier jardín. <p style='color:#E91E63; font-weight:bold; font-size:1.1em; margin-top:15px; text-align:center;'>¡Te quiero mucho!</p>", videoLink: ""},
+            crimson: {name: "Crimson", icon: "🌺", description: "Una flor de color intenso que simboliza pasión y energía. Su tono carmesí aporta calidez y contraste al ramo central y esa energia tan positiva la tranmites y te ase ser muy especial. <p style='color:#E91E63; font-weight:bold; font-size:1.1em; margin-top:15px; text-align:center;'>¡Eres muy hermosa!</p>", videoLink: ""}, 
+            golden: {name: "Tulipan", icon: "🌸", description: "El tulipán es una elegante planta bulbosa con flores en forma de copa que simboliza el amor perfecto y la alegría. Originaria de Asia Central, sus pétalos aterciopelados se alzan orgullosos en primavera, creando vibrantes tapices de color que anuncian la nueva estación, asi de elegante te ves antes mis ojitos. <p style='color:#E91E63; font-weight:bold; font-size:1.1em; margin-top:15px; text-align:center;'>¡Te adoro niña linda!</p>", videoLink: ""}
+        };
+
+        // --- FUNCIONES DE PERSISTENCIA ---
+
+        function saveGameState() {
+            localStorage.setItem(STORAGE_KEY_LETTERS, JSON.stringify(guessedLetters));
+            localStorage.setItem(STORAGE_KEY_NO_COUNT, noCount.toString());
+            localStorage.setItem(STORAGE_KEY_REVEALED, isRevealed.toString());
+        }
+
+        function loadGameState() {
+            const storedLetters = localStorage.getItem(STORAGE_KEY_LETTERS);
+            if (storedLetters) {
+                guessedLetters = JSON.parse(storedLetters);
+            }
+            
+            const storedNoCount = localStorage.getItem(STORAGE_KEY_NO_COUNT);
+            if (storedNoCount) {
+                noCount = parseInt(storedNoCount, 10);
+            }
+            
+            const storedIsRevealed = localStorage.getItem(STORAGE_KEY_REVEALED);
+            if (storedIsRevealed) {
+                isRevealed = storedIsRevealed === 'true';
+            }
+        }
+        
+        // --- FUNCIONES DE CELEBRACIÓN ---
+
+        function startCelebration() {
+            document.body.classList.add('tender-background');
+            
+            const items = ['❤️', '💖', '🌸', '🌹', '✨']; 
+            const colors = ['#E91E63', '#FF69B4', '#FFD700', '#FFFFFF'];
+            
+            const maxParticles = 50; 
+            let count = 0;
+            
+            const interval = setInterval(() => {
+                if (count >= maxParticles) {
+                    clearInterval(interval);
+                    return;
+                }
+                
+                const item = document.createElement('div');
+                item.className = 'falling-item';
+                item.textContent = items[Math.floor(Math.random() * items.length)];
+                
+                // Dynamic CSS variables
+                const size = Math.random() * 20 + 20; // 20px to 40px
+                const left = Math.random() * 100; // 0% to 100%
+                const speed = Math.random() * 5 + 5; // 5s to 10s
+                const color = colors[Math.floor(Math.random() * colors.length)];
+
+                item.style.setProperty('--size', `${size}px`);
+                item.style.setProperty('--color', color);
+                item.style.setProperty('--duration', `${speed}s`);
+                item.style.left = `${left}vw`;
+                item.style.animationDelay = `${Math.random() * 2}s`; // Stagger start times
+
+                celebrationContainer.appendChild(item);
+                count++;
+
+                // Clean up old elements
+                setTimeout(() => {
+                    item.remove();
+                }, speed * 1000 + 3000); 
+                
+            }, 150); 
+        }
+
+        // --- FUNCIONES DE CONTROL DE JUEGO ---
+
+        function resetGame() {
+            if (confirm("¿Estás segura que quieres reiniciar el juego y perder tu progreso?")) {
+                localStorage.removeItem(STORAGE_KEY_LETTERS);
+                localStorage.removeItem(STORAGE_KEY_NO_COUNT);
+                localStorage.removeItem(STORAGE_KEY_REVEALED);
+                window.location.reload(); 
+            }
+        }
+        
+        function initializeWordDisplay() {
+            wordDisplay.innerHTML = '';
+            for (let i = 0; i < PHRASE.length; i++) {
+                const char = PHRASE[i];
+                const normalizedChar = NORMALIZED_PHRASE[i];
+                const box = document.createElement('div');
+                
+                if (char === '?' || char === '¿') {
+                    box.className = 'letter-box punctuation-box';
+                    box.textContent = char; 
+                } else if (char === ' ') {
+                    box.className = 'space-box';
+                } else {
+                    box.className = 'letter-box covered'; 
+                    box.dataset.char = normalizedChar;
+                    
+                    if (guessedLetters.includes(normalizedChar)) {
+                        box.textContent = PHRASE[i]; 
+                        box.classList.add('found-correct'); 
+                    } else {
+                        box.textContent = ''; 
+                    }
+                }
+                wordDisplay.appendChild(box);
+            }
+            
+            checkWinCondition(true); 
+        }
+
+        function handleGuess(event) {
+            const letter = event.target.value.toLowerCase();
+            
+            if (letter.length !== 1 || !/^[a-z]$/.test(letter)) {
+                event.target.value = '';
+                return;
+            }
+            
+            if (guessedLetters.includes(letter)) {
+                event.target.value = '';
+                return;
+            }
+
+            guessedLetters.push(letter);
+            let found = false;
+
+            const boxes = document.querySelectorAll('.letter-box[data-char]');
+            boxes.forEach(box => {
+                if (box.dataset.char === letter) {
+                    const originalIndex = Array.from(wordDisplay.children).indexOf(box);
+                    box.textContent = PHRASE[originalIndex];
+                    box.classList.add('found-correct'); 
+                    found = true;
+                }
+            });
+
+            event.target.value = '';
+            
+            checkWinCondition();
+        }
+
+        function checkWinCondition(isLoad = false) {
+            const boxes = document.querySelectorAll('.letter-box[data-char]');
+            const allGuessed = Array.from(boxes).every(box => box.textContent !== ''); 
+            
+            if (!isLoad) {
+                saveGameState();
+            }
+
+            if (allGuessed) {
+                inputLetter.style.display = 'none'; 
+                
+                if (isRevealed) {
+                    // Si ya se reveló, mostrar directamente los botones (y mantener el fondo tierno)
+                    revealWordSequence(true); 
+                } else {
+                    // Si no se ha revelado, mostrar el botón "Listo"
+                    readyBtn.style.display = 'inline-block';
+                    boxes.forEach(box => {
+                        box.classList.add('covered');
+                        box.classList.remove('revealing', 'revealed');
+                    });
+                    guessMessage.textContent = "¡Lo has conseguido! Presiona el botón para la revelación.";
+                }
+            }
+        }
+
+        function revealWordSequence(isLoad = false) {
+            
+            isRevealed = true;
+            saveGameState();
+            
+            // 1. INICIAR CELEBRACIÓN SOLO EN EL PRIMER CLICK
+            if (!isLoad) {
+                startCelebration();
+            }
+            
+            readyBtn.style.display = 'none';
+            guessMessage.textContent = "¡Observa atentamente la frase completa!";
+            
+            const boxes = document.querySelectorAll('.letter-box[data-char]');
+            
+            if (isLoad) {
+                // Si se carga el estado, revelar inmediatamente y poner el fondo
+                document.body.classList.add('tender-background'); 
+                boxes.forEach(box => {
+                    box.classList.remove('covered', 'revealing', 'found-correct');
+                    box.classList.add('revealed'); 
+                });
+                showFinalDecision();
+                return;
+            }
+
+            // Lógica de animación secuencial letra por letra
+            // [MODIFICADO] Duración de 500ms por letra para que 20 letras duren 10 segundos
+            boxes.forEach((box, index) => {
+                setTimeout(() => {
+                    box.classList.remove('covered', 'found-correct'); 
+                    box.classList.add('revealing'); 
+                    
+                    setTimeout(() => {
+                        box.classList.remove('revealing');
+                        box.classList.add('revealed'); 
+                    }, 500); // Duración de la animación individual
+                    
+                    if (index === boxes.length - 1) {
+                        setTimeout(showFinalDecision, 500); // Esperar 500ms después de la última animación
+                    }
+                }, index * 500); // Retraso entre letras (500ms * 20 chars = 10s)
+            });
+        }
+
+        function showFinalDecision() {
+            guessMessage.textContent = "¿Aceptas el hermoso jardín y lo que significa?";
+            finalDecisionButtons.style.display = 'block';
+        }
+
+        function handleDecision(answer) {
+            if (answer === 'yes') {
+                finalDecisionButtons.style.display = 'none';
+                
+                const yesContent = `
+                    <button class="close-btn" onclick="closeInfo()">&times;</button>
+                    <div class="flower-icon" style="font-size: 4em;">🎉❤️</div>
+                    <h2>¡SÍ! ¡Qué emoción!</h2>
+                    <p style="font-size: 1.2rem; text-align: center; color: #E91E63;">
+                        Siiiiii. ¡Este jardín es solo el comienzo de nuestra aventura! te cuidare, te amare, te respetare y te escuare siempre ♥︎
+                        Eres la persona más maravillosa que he conocido, y estoy increíblemente feliz 
+                        de que ahora seamos más que amigos. ¡Te quiero!
+(mandame tu respuesta por WhatsApp🤭❤️)
+                    </p>
+                `;
+                document.getElementById('flowerInfo').innerHTML = yesContent;
+                document.getElementById('infoPanel').style.display = 'flex';
+                guessMessage.textContent = "¡La respuesta es SÍ! Eres increíble.";
+                
+                localStorage.clear(); // Limpiar todo para la aceptación
+                
+            } else if (answer === 'no') {
+                if (noCount < 5) {
+                    const currentPhrase = noPhrases[noCount];
+                    noCount++;
+                    saveGameState(); 
+                    guessMessage.textContent = currentPhrase;
+                    
+                    const noBtn = document.querySelector('.no-btn');
+                    noBtn.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        noBtn.style.transform = '';
+                    }, 300);
+
+                } else {
+                    noCount++; 
+                    saveGameState();
+                    finalDecisionButtons.style.display = 'none';
+                    
+                    const finalNoContent = `
+                        <button class="close-btn" onclick="closeInfo()">&times;</button>
+                        <div class="flower-icon" style="font-size: 4em;">😔👍</div>
+                        <h2>Entendido. Respeto tu decisión.</h2>
+                        <p style="font-size: 1.2rem; text-align: center;">
+                            Aunque me pone triste, respeto completamente lo que sientes. 
+                            Gracias por ser honesta y por permitirme mostrarte este jardín. 
+                            Te deseo lo mejor. (El jardín permanecerá aquí).
+                        </p>
+                    `;
+                    document.getElementById('flowerInfo').innerHTML = finalNoContent;
+                    document.getElementById('infoPanel').style.display = 'flex';
+                    guessMessage.textContent = "Respeto tu decisión. ¡Gracias por jugar!";
+                }
+            }
+        }
+        
+        // --- FUNCIONES DEL JARDÍN (showInfo modificado) ---
+
+        function createHeartFlower(color, position, centerX, baseY, delay) {
+            const flower = document.createElement('div');
+            flower.className = `big-flower ${color}`;
+            flower.style.left = position.x - 0 + 'px';
+           flower.style.bottom = window.innerHeight - position.y - 100 + 'px';
+            flower.style.animationDelay = `${delay}s`;
+            flower.style.transform = `scale(1.3)`;
+
+            const angle = Math.atan2(position.y - baseY, position.x - centerX) * 180 / Math.PI + 90;
+            const stemLength = Math.sqrt(Math.pow(position.x - centerX, 2) + Math.pow(position.y - baseY, 2)) + 50;
+
+            flower.innerHTML = `
+                <div class="big-stem" style="
+                    height: ${stemLength}px; 
+                    transform-origin: top center;
+                    transform: rotate(${angle}deg);
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    margin-left: -9px;
+                    margin-top: -${stemLength}px;
+                ">
+                    <div class="big-leaf left"></div>
+                    <div class="big-leaf right"></div>
+                </div>
+                <div class="big-petals">
+                    <div class="big-petal"></div>
+                    <div class="big-petal"></div>
+                    <div class="big-petal"></div>
+                    <div class="big-petal"></div>
+                    <div class="big-petal"></div>
+                    <div class="big-center" onclick="showInfo('${color}')"></div>
+                </div>
+            `;
+
+            garden.appendChild(flower);
+        }
+
+        function createSparkle(flower) {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            sparkle.style.left = Math.random() * 30 + 'px';
+            sparkle.style.top = Math.random() * 20 + 'px';
+            
+            flower.appendChild(sparkle);
+            
+            setTimeout(() => {
+                sparkle.remove();
+            }, 2000);
+        }
+
+        function createButterfly() {
+            const butterfly = document.createElement('div');
+            butterfly.className = 'butterfly';
+            butterfly.innerHTML = `
+                <div class="wing left"></div>
+                <div class="wing right"></div>
+                <div class="body"></div>
+            `;
+            
+            garden.appendChild(butterfly);
+            
+            setTimeout(() => {
+                butterfly.remove();
+            }, 8000);
+        }
+
+        // [INICIO] FUNCIÓN showInfo MODIFICADA
+        function showInfo(color) {
+            const data = flowerData[color];
+            let descriptionText = data.description;
+            let letterMessage = '';
+            
+            // Regex para encontrar la letra incrustada: [L:x]
+            const letterMatch = descriptionText.match(/\[L:([a-z])\]/i);
+            let foundLetter = null;
+
+            if (letterMatch) {
+                foundLetter = letterMatch[1].toLowerCase();
+                
+                // Reemplazar el marcador en la descripción que se va a mostrar
+                descriptionText = descriptionText.replace(letterMatch[0], '***'); 
+
+                if (!guessedLetters.includes(foundLetter)) {
+                    // La letra no ha sido adivinada
+                    letterMessage = `<p style="font-size: 1.5rem; color: #AD1457; font-weight: bold; margin-top: 15px;">
+                                        ¡Letra Descubierta! Es la letra: <span style="font-size: 2em; color: #E91E63;">${foundLetter.toUpperCase()}</span>
+                                    </p>
+                                    <p style="color: #6A1B9A; font-weight: bold;">
+                                        Escribe esta letra en la caja de texto inferior para revelarla en la frase.
+                                    </p>`;
+                } else {
+                    // La letra ya fue adivinada
+                    letterMessage = `<p style="font-size: 1.2rem; color: #2E7D32; font-weight: bold; margin-top: 15px;">
+                                        ¡Esta letra ya fue encontrada!
+                                    </p>`;
+                }
+            }
+
+
+            let videoHtml = ''; 
+            if (data.videoLink && data.videoLink.trim() !== "") {
+                videoHtml = `
+                    <div style="margin-top: 25px;">
+                        <a href="${data.videoLink}" target="_blank" class="video-btn"
+                           style="background-color: #E91E63; color: white; padding: 12px 24px; 
+                                  text-decoration: none; border-radius: 8px; font-weight: bold; 
+                                  font-size: 1.1em; display: inline-block; cursor: pointer;
+                                  box-shadow: 0 4px 8px rgba(0,0,0,0.2); transition: all 0.3s ease;">
+                            ▶️ Ver Video Relacionado
+                        </a>
+                    </div>
+                `;
+            }
+
+            document.getElementById('flowerInfo').innerHTML = `
+                <div class="flower-icon">${data.icon}</div>
+                <h2>${data.name}</h2>
+                <p>${descriptionText}</p>
+                ${letterMessage} 
+                ${videoHtml} 
+            `;
+            document.getElementById('infoPanel').style.display = 'flex';
+        }
+        // [FIN] FUNCIÓN showInfo MODIFICADA
+
+        function closeInfo() {
+            document.getElementById('infoPanel').style.display = 'none';
+        }
+
+        function createDecorativeFlower() {
+            const flower = document.createElement('div');
+            flower.className = `flower ${colors[Math.floor(Math.random() * colors.length)]}`;
+            
+            const x = Math.random() * (window.innerWidth - 100) + 50;
+            
+            flower.style.left = x + 'px';
+            flower.style.bottom = '0px'; 
+            flower.style.animationDelay = `0s`;
+
+            flower.innerHTML = `
+                <div class="stem">
+                    <div class="leaf left"></div>
+                    <div class="leaf right"></div>
+                </div>
+                <div class="petals">
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                    <div class="petal"></div>
+                    <div class="center"></div>
+                </div>
+            `;
+
+            groundFlowers.appendChild(flower); 
+            flowerCount++;
+
+            if (Math.random() < 0.3) {
+                setTimeout(() => {
+                    createSparkle(flower);
+                }, 2000 + Math.random() * 3000);
+            }
+        }
+
+        function startGarden() {
+            const centerX = window.innerWidth / 2;
+            const baseY = window.innerHeight * 0.4;
+            
+            const heartPositions = [
+                { x: centerX - 70, y: baseY - 220 }, { x: centerX - 160, y: baseY - 220 }, 
+                { x: centerX - 200, y: baseY - 150 }, { x: centerX + 70, y: baseY - 220 }, 
+                { x: centerX + 160, y: baseY - 220 }, { x: centerX + 200, y: baseY - 150 }, 
+                { x: centerX, y: baseY - 150 }, { x: centerX - 170, y: baseY - 70 }, 
+                { x: centerX + 170, y: baseY - 70 }, { x: centerX - 140, y: baseY - 0 }, 
+                { x: centerX + 140, y: baseY - 0 }, { x: centerX, y: baseY + 120 }, 
+                { x: centerX - 80, y: baseY + 65 }, { x: centerX + 80, y: baseY + 65 }
+            ];
+
+            bigFlowerColors.forEach((color, index) => {
+                setTimeout(() => {
+                    createHeartFlower(color, heartPositions[index], centerX, baseY, index * 0.2);
+                }, index * 300);
+            });
+
+            setTimeout(() => {
+                for (let i = 0; i < 15; i++) {
+                    setTimeout(() => {
+                        createDecorativeFlower();
+                    }, i * 400);
+                }
+            }, 4000);
+
+            setInterval(() => {
+                if (flowerCount < 25) {
+                    createDecorativeFlower();
+                }
+            }, 5000);
+
+            setInterval(() => {
+                if (Math.random() < 0.4) {
+                    createButterfly();
+                }
+            }, 6000);
+        }
+
+        // Event Listeners y Inicialización
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeInfo();
+            }
+        });
+
+        document.getElementById('infoPanel').addEventListener('click', (e) => {
+            if (e.target.id === 'infoPanel') {
+                closeInfo();
+            }
+        });
+
+        document.body.addEventListener('click', (e) => {
+            if (e.target === document.body || e.target.id === 'groundFlowers' || e.target.id === 'garden') {
+                if (e.clientY > window.innerHeight / 2) {
+                    const flower = document.createElement('div');
+                    flower.className = `flower ${colors[Math.floor(Math.random() * colors.length)]}`;
+                    flower.style.left = e.clientX - 15 + 'px';
+                    flower.style.bottom = '0px'; 
+                    flower.style.animationDelay = '0s';
+
+                    flower.innerHTML = `
+                        <div class="stem">
+                            <div class="leaf left"></div>
+                            <div class="leaf right"></div>
+                        </div>
+                        <div class="petals">
+                            <div class="petal"></div>
+                            <div class="petal"></div>
+                            <div class="petal"></div>
+                            <div class="petal"></div>
+                            <div class="petal"></div>
+                            <div class="center"></div>
+                        </div>
+                    `;
+
+                    groundFlowers.appendChild(flower); 
+                    createSparkle(flower);
+                }
+            }
+        });
+
+        window.addEventListener('load', () => {
+            loadGameState(); 
+            setTimeout(startGarden, 500);
+            initializeWordDisplay(); 
+            inputLetter.addEventListener('input', handleGuess);
+        });
+    </script>
+</body>
+</html>
